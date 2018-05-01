@@ -26,60 +26,74 @@ type Dialer interface {
 
 // DocumentTransformer provides a way for clients to modify the way
 // that a client's collection methods convert input documents into
-// *bson.Documents.
+// bson documents in the form of byte slices ([]byte).
 //
 // These functions allow you to wrap other bson libraries or enforce
 // different conversion strategies within the driver.
-type DocumentTransformer func(interface{}) (*bson.Document, error)
-
-// TransformDocument handles transforming a document of an allowable type into
-// a *bson.Document. This method is called directly after most methods that
-// have one or more parameters that are documents.
 //
-// The supported types for document are:
+// These transformers are *not* called for well known types, including:
 //
 //  bson.Marshaler
 //  bson.DocumentMarshaler
 //  bson.Reader
 //  []byte (must be a valid BSON document)
 //  io.Reader (only 1 BSON document will be read)
-//  A custom struct type
 //
-func TransformDocument(document interface{}) (*bson.Document, error) {
+type DocumentTransformer func(interface{}) ([]byte, error)
+
+// TransformDocument is the default document transformer
+// implementation which uses reflection to convert structs into bson
+// documents (in the format of []byte objects.)
+func TransformDocument(document interface{}) ([]byte, error) {
+	var kind reflect.Kind
+	if t := reflect.TypeOf(document); t.Kind() == reflect.Ptr {
+		kind = t.Elem().Kind()
+	}
+
+	if reflect.ValueOf(document).Kind() == reflect.Struct || kind == reflect.Struct {
+		return bson.NewDocumentEncoder().EncodeDocument(document).MarshalBSON()
+	}
+
+	if reflect.ValueOf(document).Kind() == reflect.Map &&
+		reflect.TypeOf(document).Key().Kind() == reflect.String {
+		return bson.NewDocumentEncoder().EncodeDocument(document).MarshalBSON()
+	}
+
+	return nil, fmt.Errorf("cannot transform type %s to a *bson.Document", reflect.TypeOf(document))
+}
+
+func convertToDocument(dt DocumentTransformer, document interface{}) (bson.Reader, error) {
 	switch d := document.(type) {
 	case nil:
-		return bson.NewDocument(), nil
-	case *bson.Document:
+		return bson.Reader([]byte{}), nil
+	case []byte:
+		return bson.Reader(d), nil
+	case bson.Reader:
 		return d, nil
-	case bson.Marshaler, bson.Reader, []byte, io.Reader:
-		return bson.NewDocumentEncoder().EncodeDocument(document)
+	case io.Reader:
+		return bson.NewFromIOReader(d)
+	case *bson.Document, bson.Marshaler:
+		return d.MarshalBSON()
 	case bson.DocumentMarshaler:
-		return d.MarshalBSONDocument()
+		return d.MarshalBSONDocument().MarshalBSON()
 	default:
-		var kind reflect.Kind
-		if t := reflect.TypeOf(document); t.Kind() == reflect.Ptr {
-			kind = t.Elem().Kind()
-		}
-		if reflect.ValueOf(document).Kind() == reflect.Struct || kind == reflect.Struct {
-			return bson.NewDocumentEncoder().EncodeDocument(document)
-		}
-		if reflect.ValueOf(document).Kind() == reflect.Map &&
-			reflect.TypeOf(document).Key().Kind() == reflect.String {
-			return bson.NewDocumentEncoder().EncodeDocument(document)
+		doc, err := dt(document)
+		if err != nil {
+			return nil, err
 		}
 
-		return nil, fmt.Errorf("cannot transform type %s to a *bson.Document", reflect.TypeOf(document))
+		return bson.Reader(doc), nil
 	}
 }
 
-func ensureID(d *bson.Document) (interface{}, error) {
+func ensureID(d bson.Reader) (interface{}, error) {
 	var id interface{}
 
 	elem, err := d.Lookup("_id")
 	switch {
 	case err == bson.ErrElementNotFound:
 		oid := objectid.New()
-		d.Append(bson.EC.ObjectID("_id", oid))
+		d = append(d, bson.EC.ObjectID("_id", oid).MarshalBSON()...)
 		id = oid
 	case err != nil:
 		return nil, err

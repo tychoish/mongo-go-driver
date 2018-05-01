@@ -72,10 +72,14 @@ func main() {
 }
 
 func prep(ctx context.Context, c *topology.Topology) error {
-
-	var docs = make([]*bson.Document, 0, 1000)
+	var err error
+	var docs = make([]bson.Reader, 0, 1000)
 	for i := 0; i < 1000; i++ {
-		docs = append(docs, bson.NewDocument(bson.EC.Int32("_id", int32(i))))
+		d, err := bson.NewDocument(bson.EC.Int32("_id", int32(i))).MarshalBSON()
+		if err != nil {
+			return err
+		}
+		docs = append(docs, d)
 	}
 
 	ns := command.ParseNamespace(*ns)
@@ -99,6 +103,7 @@ func prep(ctx context.Context, c *topology.Topology) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = (&command.Insert{NS: ns, Docs: docs}).RoundTrip(ctx, s.Description(), conn)
 	return err
 }

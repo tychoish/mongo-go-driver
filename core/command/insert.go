@@ -24,7 +24,7 @@ import (
 // an error, this type has no Err method.
 type Insert struct {
 	NS   Namespace
-	Docs []*bson.Document
+	Docs []bson.Reader
 	Opts []options.InsertOptioner
 
 	result result.Insert
@@ -34,11 +34,18 @@ type Insert struct {
 // Encode will encode this command into a wire message for the given server description.
 func (i *Insert) Encode(desc description.SelectedServer) (wiremessage.WireMessage, error) {
 	command := bson.NewDocument(bson.EC.String("insert", i.NS.Collection))
-	vals := make([]*bson.Value, 0, len(i.Docs))
-	for _, doc := range i.Docs {
-		vals = append(vals, bson.VC.Document(doc))
+
+	di := make([]interface{}, len(i.Docs))
+	for idx := range i.Docs {
+		di[idx] = i.Docs[idx]
 	}
-	command.Append(bson.EC.ArrayFromElements("documents", vals...))
+
+	vals := &bson.Array{}
+	if err := vals.Concat(di...); err != nil {
+		return err
+	}
+
+	command.Append(bson.EC.Array("documents", vals))
 
 	for _, option := range i.Opts {
 		if option == nil {

@@ -20,7 +20,7 @@ import (
 //
 // The listDatabases command lists the databases in a MongoDB deployment.
 type ListDatabases struct {
-	Filter *bson.Document
+	Filter bson.Reader
 	Opts   []options.ListDatabasesOptioner
 
 	result result.ListDatabases
@@ -32,7 +32,7 @@ func (ld *ListDatabases) Encode(desc description.SelectedServer) (wiremessage.Wi
 	cmd := bson.NewDocument(bson.EC.Int32("listDatabases", 1))
 
 	if ld.Filter != nil {
-		cmd.Append(bson.EC.SubDocument("filter", ld.Filter))
+		cmd.Append(bson.EC.SubDocumentFromReader("filter", ld.Filter))
 	}
 
 	for _, opt := range ld.Opts {

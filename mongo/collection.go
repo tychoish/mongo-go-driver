@@ -89,7 +89,7 @@ func (coll *Collection) InsertOne(ctx context.Context, document interface{},
 	oldns := coll.namespace()
 	cmd := command.Insert{
 		NS:   command.Namespace{DB: oldns.DB, Collection: oldns.Collection},
-		Docs: []*bson.Document{doc},
+		Docs: []bson.Reader{doc},
 		Opts: newOptions,
 	}
 
@@ -118,7 +118,7 @@ func (coll *Collection) InsertMany(ctx context.Context, documents []interface{},
 	}
 
 	result := make([]interface{}, len(documents))
-	docs := make([]*bson.Document, len(documents))
+	docs := make([]bson.Reader, len(documents))
 
 	for i, doc := range documents {
 		bdoc, err := coll.docTransformer(doc)
@@ -208,7 +208,9 @@ func (coll *Collection) DeleteMany(ctx context.Context, filter interface{},
 	if err != nil {
 		return nil, err
 	}
-	deleteDocs := []*bson.Document{bson.NewDocument(bson.EC.SubDocument("q", f), bson.EC.Int32("limit", 0))}
+	deleteDocs := []*bson.Document{
+		bson.NewDocument(bson.EC.SubDocument("q", f), bson.EC.Int32("limit", 0)),
+	}
 
 	oldns := coll.namespace()
 	cmd := command.Delete{
@@ -439,7 +441,7 @@ func (coll *Collection) transformAggregatePipeline(pipeline interface{}) (*bson.
 			pipelineArr.Append(bson.VC.Document(doc))
 		}
 	default:
-		p, err := TransformDocument(pipeline)
+		p, err := coll.docTransformer(pipeline)
 		if err != nil {
 			return nil, err
 		}

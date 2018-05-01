@@ -22,7 +22,7 @@ import (
 // and options.
 type Delete struct {
 	NS      Namespace
-	Deletes []*bson.Document
+	Deletes []bson.Reader
 	Opts    []options.DeleteOptioner
 
 	result result.Delete
@@ -37,10 +37,16 @@ func (d *Delete) Encode(desc description.SelectedServer) (wiremessage.WireMessag
 
 	command := bson.NewDocument(bson.EC.String("delete", d.NS.Collection))
 
-	arr := bson.NewArray()
-	for _, doc := range d.Deletes {
-		arr.Append(bson.VC.Document(doc))
+	di := make([]interface{}, len(d.Deletes))
+	for idx := range d.Deletes {
+		di[idx] = d.Deletes[idx]
 	}
+
+	arr := &bson.Array{}
+	if err := arr.Concat(di...); err != nil {
+		return err
+	}
+
 	command.Append(bson.EC.Array("deletes", arr))
 
 	for _, option := range d.Opts {
