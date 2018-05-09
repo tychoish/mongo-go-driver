@@ -2492,3 +2492,40 @@ func elementSliceEqual(t *testing.T, e1 []*Element, e2 []*Element) {
 		require.True(t, readerElementComparer(e1[i], e2[i]))
 	}
 }
+
+func TestNoOverwrite(t *testing.T) {
+	doc := NewDocument(
+		EC.Boolean("a", true),
+		EC.SubDocumentFromElements("c",
+			EC.Boolean("a", true)),
+	)
+
+	type nested struct {
+		A bool
+		B bool
+	}
+
+	type top struct {
+		A bool
+		B bool
+		C *nested
+	}
+
+	v := top{
+		B: true,
+		C: &nested{
+			B: true,
+		},
+	}
+
+	var buffer bytes.Buffer
+	doc.WriteTo(&buffer)
+
+	err := Unmarshal(buffer.Bytes(), &v)
+	require.NoError(t, err)
+
+	require.Equal(t, true, v.A)
+	require.Equal(t, true, v.B)
+	require.Equal(t, true, v.C.A)
+	require.Equal(t, true, v.C.B)
+}

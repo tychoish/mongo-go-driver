@@ -229,6 +229,10 @@ func (d *Decoder) reflectDecode(val reflect.Value) (err error) {
 		}
 	}()
 
+	if val.Kind() == reflect.Ptr {
+		return d.reflectDecode(val.Elem())
+	}
+
 	switch val.Kind() {
 	case reflect.Map:
 		return d.decodeIntoMap(val)
@@ -236,15 +240,8 @@ func (d *Decoder) reflectDecode(val reflect.Value) (err error) {
 		return d.decodeIntoElementSlice(val)
 	case reflect.Struct:
 		return d.decodeIntoStruct(val)
-	case reflect.Ptr:
-		v := val.Elem()
-
-		if v.Kind() == reflect.Struct {
-			return d.decodeIntoStruct(v)
-		}
-
-		fallthrough
 	default:
+		fmt.Println(val.Kind())
 		return fmt.Errorf("cannot decode BSON document to type %s", val.Type())
 	}
 }
@@ -293,7 +290,7 @@ func (d *Decoder) createEmptyValue(r Reader, t reflect.Type) (reflect.Value, err
 	return val, nil
 }
 
-func (d *Decoder) getReflectValue(v *Value, containerType reflect.Type, outer reflect.Type) (reflect.Value, error) {
+func (d *Decoder) getReflectValue(v *Value, containerType reflect.Type, outer reflect.Type, target reflect.Value) (reflect.Value, error) {
 	var val reflect.Value
 
 	for containerType.Kind() == reflect.Ptr {
@@ -414,38 +411,36 @@ func (d *Decoder) getReflectValue(v *Value, containerType reflect.Type, outer re
 			if err != nil {
 				return val, err
 			}
-
 			val = newVal
 
 			break
 		}
 
 		fallthrough
-
 	case 0x3:
 		r := v.ReaderDocument()
-
 		typeToCreate := containerType
+		var err error
 		if typeToCreate == tEmpty {
-			typeToCreate = outer
-		}
+			typeToCreate = target.Type()
 
-		empty, err := d.createEmptyValue(r, typeToCreate)
-		if err != nil {
-			return val, err
+			target, err = d.createEmptyValue(r, typeToCreate)
+			if err != nil {
+				return val, err
+			}
 		}
 
 		d := NewDecoder(bytes.NewBuffer(r))
-		err = d.Decode(empty.Interface())
+		err = d.Decode(target.Interface())
 		if err != nil {
-			return val, err
+			return target, err
 		}
 
-		if reflect.PtrTo(typeToCreate) == empty.Type() {
-			empty = empty.Elem()
+		if reflect.PtrTo(typeToCreate) == target.Type() {
+			target = target.Elem()
 		}
 
-		val = empty
+		val = target
 
 	case 0x5:
 		switch containerType {
@@ -673,12 +668,15 @@ func (d *Decoder) decodeIntoMap(mapVal reflect.Value) error {
 		return err
 	}
 
-	valType := mapVal.Type().Elem()
+	if mapVal.IsNil() {
+		mapVal = reflect.MakeMap(mapVal.Type())
+	}
 
+	valType := mapVal.Type().Elem()
 	for itr.Next() {
 		elem := itr.Element()
 
-		v, err := d.getReflectValue(elem.value, valType, mapVal.Type())
+		v, err := d.getReflectValue(elem.value, valType, mapVal.Type(), reflect.New(valType))
 		if err != nil {
 			return err
 		}
@@ -710,6 +708,7 @@ func (d *Decoder) decodeBSONArrayToSlice(sliceType reflect.Type) (reflect.Value,
 			itr.Element().Clone().Value(),
 			sliceType.Elem(),
 			sliceType,
+			reflect.ValueOf(nil),
 		)
 		if err != nil {
 			return out, err
@@ -719,8 +718,8 @@ func (d *Decoder) decodeBSONArrayToSlice(sliceType reflect.Type) (reflect.Value,
 		}
 
 		elems = append(elems, v)
-	}
 
+	}
 	out = reflect.MakeSlice(sliceType, len(elems), len(elems))
 
 	for i, elem := range elems {
@@ -752,15 +751,17 @@ func (d *Decoder) decodeBSONArrayIntoArray(arrayType reflect.Type) (reflect.Valu
 	}
 
 	i := 0
+	var v reflect.Value
 	for itr.Next() {
 		if i >= length {
 			break
 		}
 
-		v, err := d.getReflectValue(
+		v, err = d.getReflectValue(
 			itr.Element().Clone().Value(),
 			arrayType.Elem(),
 			arrayType,
+			reflect.ValueOf(nil),
 		)
 		if err != nil {
 			return arrayVal, err
@@ -768,6 +769,7 @@ func (d *Decoder) decodeBSONArrayIntoArray(arrayType reflect.Type) (reflect.Valu
 
 		arrayVal.Elem().Index(i).Set(v)
 		i++
+
 	}
 
 	if err = itr.Err(); err != nil {
@@ -854,11 +856,12 @@ func (d *Decoder) decodeIntoStruct(structVal reflect.Value) error {
 		field := structVal.FieldByNameFunc(func(field string) bool {
 			return matchesField(elem.Key(), field, sType)
 		})
+
 		if field == zeroVal {
 			continue
 		}
 
-		v, err := d.getReflectValue(elem.value, field.Type(), structVal.Type())
+		v, err := d.getReflectValue(elem.value, field.Type(), structVal.Type(), field)
 		if err != nil {
 			return err
 		}
@@ -868,6 +871,11 @@ func (d *Decoder) decodeIntoStruct(structVal reflect.Value) error {
 				v = v.Addr()
 			}
 
+			if field.Type().Kind() == reflect.Map {
+				if err = d.decodeIntoMap(v); err != nil {
+					return err
+				}
+			}
 			field.Set(v)
 		}
 	}
