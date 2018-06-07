@@ -53,6 +53,12 @@ test:
 test-cover:
 	go test $(BUILD_TAGS) -timeout $(TEST_TIMEOUT)s -cover $(COVER_ARGS) $(TEST_PKGS)
 
+benchmark:
+	go test $(BUILD_TAGS) -benchmem -bench=. ./benchmark | tee perf.gotest
+driver-benchmark:
+	go run benchmark/main/godriver-benchmark.go
+.PHONY:benchmark driver-benchmark
+
 .PHONY: test-race
 test-race:
 	go test $(BUILD_TAGS) -timeout $(TEST_TIMEOUT)s -race $(TEST_PKGS)
