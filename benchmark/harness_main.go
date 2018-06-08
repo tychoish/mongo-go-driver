@@ -28,7 +28,7 @@ func DriverBenchmarkMain() int {
 			continue
 		}
 
-		output = append(output, evg)
+		output = append(output, evg...)
 	}
 
 	evgOutput, err := json.MarshalIndent(map[string]interface{}{"results": output}, "", "   ")

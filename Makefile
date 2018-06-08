@@ -54,9 +54,9 @@ test-cover:
 	go test $(BUILD_TAGS) -timeout $(TEST_TIMEOUT)s -cover $(COVER_ARGS) $(TEST_PKGS)
 
 benchmark:
-	go test $(BUILD_TAGS) -benchmem -bench=. ./benchmark | tee perf.suite
+	go test $(BUILD_TAGS) -benchmem -bench=. ./benchmark
 driver-benchmark:
-	go run benchmark/main/godriver-benchmark.go
+	@go run benchmark/main/godriver-benchmark.go | tee perf.suite
 .PHONY:benchmark driver-benchmark
 
 .PHONY: test-race

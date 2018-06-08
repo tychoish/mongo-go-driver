@@ -17,7 +17,7 @@ type BenchResult struct {
 	hasErrors  *bool
 }
 
-func (r *BenchResult) EvergreenPerfFormat() (interface{}, error) {
+func (r *BenchResult) EvergreenPerfFormat() ([]interface{}, error) {
 	timings := r.timings()
 
 	median, err := stats.Median(timings)
@@ -35,21 +35,42 @@ func (r *BenchResult) EvergreenPerfFormat() (interface{}, error) {
 		return nil, err
 	}
 
-	return map[string]interface{}{
-		"name": r.Name,
-		"results": map[string]interface{}{
-			"1": map[string]interface{}{
-				"trials":         len(timings),
-				"ops_per_trial":  r.Operations,
-				"seconds":        r.Duration.Round(time.Millisecond).Seconds(),
-				"ops_per_second": r.getThroughput(median),
-				"ops_per_second_values": []float64{
-					r.getThroughput(min),
-					r.getThroughput(max),
+	out := []interface{}{
+		map[string]interface{}{
+			"name": r.Name + "-throughput",
+			"results": map[string]interface{}{
+				"1": map[string]interface{}{
+					"seconds":        r.Duration.Round(time.Millisecond).Seconds(),
+					"ops_per_second": r.getThroughput(median),
+					"ops_per_second_values": []float64{
+						r.getThroughput(min),
+						r.getThroughput(max),
+					},
 				},
 			},
 		},
-	}, nil
+	}
+
+	// always render unadjusted throuhgput
+	// if r.DataSize > 0:   add -MB, with the data adjustment
+
+	if r.DataSize > 0 {
+		out = append(out, interface{}(map[string]interface{}{
+			"name": r.Name + "-MB-adjusted",
+			"results": map[string]interface{}{
+				"1": map[string]interface{}{
+					"seconds":        r.Duration.Round(time.Millisecond).Seconds(),
+					"ops_per_second": r.adjustResults(median),
+					"ops_per_second_values": []float64{
+						r.adjustResults(min),
+						r.adjustResults(max),
+					},
+				},
+			},
+		}))
+	}
+
+	return out, nil
 }
 
 func (r *BenchResult) timings() []float64 {
@@ -60,13 +81,8 @@ func (r *BenchResult) timings() []float64 {
 	return out
 }
 
-func (r *BenchResult) getThroughput(data float64) float64 {
-	if r.DataSize > 0 {
-		return float64(r.DataSize) / data
-	}
-
-	return float64(r.Operations) / data
-}
+func (r *BenchResult) adjustResults(data float64) float64 { return float64(r.DataSize) / data }
+func (r *BenchResult) getThroughput(data float64) float64 { return float64(r.Operations) / data }
 
 func (r *BenchResult) String() string {
 	return fmt.Sprintf("name=%s, trials=%d, secs=%s", r.Name, r.Trials, r.Duration)

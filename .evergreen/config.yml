@@ -298,8 +298,7 @@ post:
   - command: gotest.parse_files
     params:
       files:
-        - "src/github.com/mongodb/mongo-go-driver/test.suite"
-        - "src/github.com/mongodb/mongo-go-driver/perf.suite"
+        - "src/github.com/mongodb/mongo-go-driver/*.suite"
   - func: upload-mo-artifacts
   - func: cleanup
 
@@ -341,7 +340,7 @@ tasks:
         #     TOPOLOGY: "server"
         #     AUTH: "noauth"
         #     SSL: "nossl"
-        - func: run-tests
+        - func: run-make
           vars:
             # TOPOLOGY: "server"
             # AUTH: "noauth"
