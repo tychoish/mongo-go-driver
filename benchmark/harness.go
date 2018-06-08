@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -26,9 +28,7 @@ func WrapCase(bench BenchCase) BenchFunction {
 		ctx := context.Background()
 		b.ResetTimer()
 		err := bench(ctx, b.N)
-		if err != nil {
-			b.Fatalf("benchmark %s encountered %s error", name, err.Error())
-		}
+		require.NoError(b, err, "case='%s'", name)
 	}
 }
 
@@ -47,7 +47,115 @@ func getAllCases() []*CaseDefinition {
 			Runtime: MinimumRuntime,
 		},
 		{
-			Bench:   FlatBSONEncodingDocument,
+			Bench:   BSONFlatDocumentEncoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONFlatDocumentDecodingLazy,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONFlatDocumentDecoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONDeepDocumentEncoding,
+			Count:   tenThousand,
+			Size:    19640000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONDeepDocumentDecodingLazy,
+			Count:   tenThousand,
+			Size:    19640000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONDeepDocumentDecoding,
+			Count:   tenThousand,
+			Size:    19640000,
+			Runtime: StandardRuntime,
+		},
+		// {
+		//	Bench:   BSONFullDocumentEncoding,
+		//	Count:   tenThousand,
+		//	Size:    57340000,
+		//	Runtime: StandardRuntime,
+		// },
+		// {
+		//	Bench:   BSONFullDocumentDecodingLazy,
+		//	Count:   tenThousand,
+		//	Size:    57340000,
+		//	Runtime: StandardRuntime,
+		// },
+		// {
+		//	Bench:   BSONFullDocumentDecoding,
+		//	Count:   tenThousand,
+		//	Size:    57340000,
+		//	Runtime: StandardRuntime,
+		// },
+		{
+			Bench:   BSONFlatReaderDecoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONDeepReaderDecoding,
+			Count:   tenThousand,
+			Size:    19640000,
+			Runtime: StandardRuntime,
+		},
+		// {
+		//	Bench:   BSONFullReaderDecoding,
+		//	Count:   tenThousand,
+		//	Size:    57340000,
+		//	Runtime: StandardRuntime,
+		// },
+		{
+			Bench:   BSONFlatMapDecoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONDeepMapDecoding,
+			Count:   tenThousand,
+			Size:    19640000,
+			Runtime: StandardRuntime,
+		},
+		// {
+		//	Bench:   BSONFullMapDecoding,
+		//	Count:   tenThousand,
+		//	Size:    57340000,
+		//	Runtime: StandardRuntime,
+		// },
+		{
+			Bench:   BSONFlatStructDecoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONFlatStructTagsDecoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONFlatStructEncoding,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
+		},
+		{
+			Bench:   BSONFlatStructTagsEncoding,
 			Count:   tenThousand,
 			Size:    75310000,
 			Runtime: StandardRuntime,

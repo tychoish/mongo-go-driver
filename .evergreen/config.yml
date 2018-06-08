@@ -332,7 +332,7 @@ tasks:
           vars:
             targets: vet
 
-    - name: perf-standalone
+    - name: perf
       tags: ["performance"]
       commands:
         # - func: bootstrap-mongo-orchestration
