@@ -3,6 +3,7 @@ package benchmark
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -81,4 +82,12 @@ func getName(i interface{}) string {
 
 	return n
 
+}
+
+func getProjectRoot() string { return filepath.Dir(getDirectoryOfFile()) }
+
+func getDirectoryOfFile() string {
+	_, file, _, _ := runtime.Caller(1)
+
+	return filepath.Dir(file)
 }

@@ -8,7 +8,8 @@ import (
 
 const (
 	ExecutionTimeout = 5 * time.Minute
-	MinimumRuntime   = 20 * time.Second
+	StandardRuntime  = time.Minute
+	MinimumRuntime   = 10 * time.Second
 	MinIterations    = 100
 
 	hundred     = 100
@@ -44,6 +45,12 @@ func getAllCases() []*CaseDefinition {
 			Count:   hundred,
 			Size:    -1,
 			Runtime: MinimumRuntime,
+		},
+		{
+			Bench:   FlatBSONEncodingDocument,
+			Count:   tenThousand,
+			Size:    75310000,
+			Runtime: StandardRuntime,
 		},
 	}
 }
